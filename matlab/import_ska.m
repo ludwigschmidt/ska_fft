@@ -12,7 +12,7 @@
 
 % load datafile into a 1d array.
 %fid = fopen( 'uv2048.dat' );
-fid = fopen( 'uv16384_50.dat' );
+fid = fopen( '../../data/uv16384_5.dat' );
 raw_data = single(fread( fid, inf, 'float32' ));
 fclose( fid );
 

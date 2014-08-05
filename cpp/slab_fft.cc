@@ -128,8 +128,6 @@ int main(int argc, char** argv) {
     }
     for (int col = 0; col < n; ++col) {
       for (int row = 0; row < slab_size; ++row) {
-        // CHECK which indexing is correct
-        //int orig_row = (n - col) - slab_size / 2 + row;
         int orig_row = -col + slab_size / 2 - row;
         if (orig_row < 0) {
           orig_row += n;
