@@ -1,4 +1,4 @@
-filename = 'uv_2048_binary.dat';
+filename = 'uv_16384_5_binary.dat';
 
 file = fopen(filename, 'w');
 fwrite(file, real(complex_image), 'single');
