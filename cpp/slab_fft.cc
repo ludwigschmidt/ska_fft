@@ -134,9 +134,6 @@ int main(int argc, char** argv) {
         if (orig_row >= n) {
           orig_row -= n;
         }
-        //if (col == 0 || col == 1) {
-        //  cout << orig_row << endl;
-        //}
         diaglo_data[row * n + col] = data[orig_row * n + col];
       }
     }
@@ -144,7 +141,6 @@ int main(int argc, char** argv) {
     //    << endl;
     auto end = chrono::high_resolution_clock::now();
     chrono::duration<double> copy_time = end - overall_start;
-    cout << "Data copy time: " << copy_time.count() << " s" << endl;
 
     // execute fftw
     auto start = chrono::high_resolution_clock::now();
@@ -172,7 +168,6 @@ int main(int argc, char** argv) {
     //    << endl;
     end = chrono::high_resolution_clock::now();
     chrono::duration<double> fftw_time = end - start;
-    cout << "FFTW time: " << fftw_time.count() << " s" << endl;
 
     start = chrono::high_resolution_clock::now();
     vector<location> large_bins;
@@ -185,7 +180,6 @@ int main(int argc, char** argv) {
     }
     end = chrono::high_resolution_clock::now();
     chrono::duration<double> selection_time = end - start;
-    cout << "Peak selection time: " << selection_time.count() << " s" << endl;
 
     /*cout << "Num large: " << large_bins.size() << endl;
     for (auto loc : large_bins) {
@@ -308,22 +302,19 @@ int main(int argc, char** argv) {
 
     end = chrono::high_resolution_clock::now();
     chrono::duration<double> interpolation_time = end - start;
-    cout << "Interpolation time: " << interpolation_time.count() << " s"
-         << endl;
-
     chrono::duration<double> overall_time = end - overall_start;
-    cout << "Overall time: " << overall_time.count() << " s" << endl;
 
-    cout << "Data copy time: "
-         << copy_time.count() / overall_time.count() * 100.0 << "%" << endl;
-    cout << "FFTW time: "
-         << fftw_time.count() / overall_time.count() * 100.0 << "%" << endl;
-    cout << "Selection time: "
-         << selection_time.count() / overall_time.count() * 100.0 << "%"
+    cout << "Data copy time:     " << copy_time.count() << " s   ("
+         << copy_time.count() / overall_time.count() * 100.0 << "%)" << endl;
+    cout << "FFTW time:          " << fftw_time.count() << " s   ("
+         << fftw_time.count() / overall_time.count() * 100.0 << "%)" << endl;
+    cout << "Selection time:     " << selection_time.count() << " s   (" 
+         << selection_time.count() / overall_time.count() * 100.0
+         << "%)" << endl;
+    cout << "Interpolation time: " << interpolation_time.count() << " s   ("
+         << interpolation_time.count() / overall_time.count() * 100.0 << "%)"
          << endl;
-    cout << "Interpolation time: "
-         << interpolation_time.count() / overall_time.count() * 100.0 << "%"
-         << endl;
+    cout << "Overall time:       " << overall_time.count() << " s" << endl;
 
     cout << "Number of selected large bins: " << large_bins.size() << endl;
     cout << "Total inner interpolation iterations: " << inner_iter << endl;
