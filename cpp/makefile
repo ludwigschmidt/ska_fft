@@ -3,3 +3,6 @@ slab_fft: slab_fft.cc helpers.h
 
 baseline_fftw: baseline_fftw.cc helpers.h
 	g++ -std=c++11 -Wall -Wextra -lfftw3f -O3 -o baseline_fftw baseline_fftw.cc
+
+check_output: check_output.cc helpers.h
+	g++ -std=c++11 -Wall -Wextra -lfftw3f -O3 -o check_output check_output.cc

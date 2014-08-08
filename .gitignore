@@ -1,5 +1,7 @@
 slab_fft
 baseline_fftw
+check_output
 .DS_Store
 *.swo
 *.swp
+*.swn

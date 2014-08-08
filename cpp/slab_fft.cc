@@ -92,26 +92,22 @@ int main(int argc, char** argv) {
     // center part
     for (int row = 0; row < center_size; ++row) {
       int orig_row = n / 2 - center_size / 2 + row;
-      for (int col = 0; col < center_size; ++col) {
-        int orig_col = n / 2 - center_size / 2 + col;
 
-        center_data[row * center_size + col]
-            = data[orig_row * n + orig_col];
-      }
+      memcpy(&(center_data[row * center_size]),
+             &(data[orig_row * n + n / 2 - center_size / 2]),
+             center_size * sizeof(complexf));
     }
     // horizontal and vertical slabs
     for (int row = 0; row < slab_size; ++row) {
       int orig_row = n / 2 - slab_size / 2 + row;
-      for (int col = 0; col < n; ++col) {
-        horiz_data[row * n + col] = data[orig_row * n + col];
-      }
+      memcpy(&(horiz_data[row * n]),
+             &(data[orig_row * n]),
+             n * sizeof(complexf));
     }
     for (int row = 0; row < n; ++row) {
-      for (int col = 0; col < slab_size; ++col) {
-        int orig_col = n / 2 - slab_size / 2 + col;
-
-        vert_data[row * slab_size + col] = data[row * n + orig_col];
-      }
+      memcpy(&(vert_data[row * slab_size]),
+             &(data[row * n + n / 2 - slab_size / 2]),
+             slab_size * sizeof(complexf));
     }
     // diagonal slabs
     for (int col = 0; col < n; ++col) {
@@ -331,6 +327,7 @@ int main(int argc, char** argv) {
 
     cout << "Number of selected large bins: " << large_bins.size() << endl;
     cout << "Total inner interpolation iterations: " << inner_iter << endl;
+    cout << "--------------------------------------------------------" << endl;
 
     running_times.push_back(overall_time.count());
   }
