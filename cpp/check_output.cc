@@ -36,11 +36,15 @@ int main(int argc, char** argv) {
 
   // compute l1 norm of difference
   double sum = 0.0;
+  double sum2 = 0.0;
   for (int ii = 0; ii < n2; ++ii) {
     sum += abs(test_data[ii] - reference_data[ii]);
+    sum2 += abs(reference_data[ii]);
   }
 
-  printf("l1 norm of differnce: %.6e\n", sum);
+  printf("l1 norm of difference: %.6e\n", sum);
+  printf("l1 norm of reference: %.6e\n", sum2);
+  printf("relative error: %.6e\n", sum / sum2);
 
   return 0;
 }
