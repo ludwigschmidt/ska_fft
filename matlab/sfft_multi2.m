@@ -25,6 +25,7 @@ projd1 = fft2(projt1);
 projd2 = fft2(projt2);
 
 % Threshold (Set by trail and error)
+% th = 0.35;  chosen by Haitham, works well for n=16384, s=5 and 50
 th = 0.35;
 
 % Number of frequencies per bin
@@ -40,6 +41,7 @@ pr = -3*b2/2:1:-b2/2;
 
 % Number of large bins
 P = length(Xs);
+fprintf('Number of large bins: %d\n', P);
 
 LL = zeros(n,n);
 for ii=1:1:P
