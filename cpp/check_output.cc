@@ -4,8 +4,6 @@
 #include <complex>
 #include <vector>
 
-#include <fftw3.h>
-
 #include "helpers.h"
 
 using namespace std;
