@@ -27,19 +27,23 @@ int main(int argc, char** argv) {
   complexf* data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * n2));
 
+  auto start = chrono::high_resolution_clock::now();
   // read input data (frequency domain)
   if (!read_input(data, filename, n)) {
     return 1;
   }
+  auto end = chrono::high_resolution_clock::now();
+  chrono::duration<double> reading_input_time = end - start;
+  cout << "Reading input time: " << reading_input_time.count() << " s" << endl;
 
   // fftw setup
-  auto start = chrono::high_resolution_clock::now();
+  start = chrono::high_resolution_clock::now();
   fftwf_plan plan = fftwf_plan_dft_2d(
       n, n,
       reinterpret_cast<fftwf_complex*>(data),
       reinterpret_cast<fftwf_complex*>(data),
       FFTW_FORWARD, FFTW_MEASURE);
-  auto end = chrono::high_resolution_clock::now();
+  end = chrono::high_resolution_clock::now();
   chrono::duration<double> fftw_setup_time = end - start;
   cout << "FFTW setup time: " << fftw_setup_time.count() << " s" << endl;
 
