@@ -1,5 +1,5 @@
-filename = '../../data/uv_16384_3_matlab_slabfft_result_binary.dat';
-to_store = LL;
+filename = '../../data/uv_8192_5_binary.dat';
+to_store = complex_image;
 
 file = fopen(filename, 'w');
 fwrite(file, real(to_store), 'single');
