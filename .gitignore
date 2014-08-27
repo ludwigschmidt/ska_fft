@@ -1,6 +1,7 @@
 slab_fft
 baseline_fftw
 check_output
+pick_peaks
 .DS_Store
 *.swo
 *.swp
