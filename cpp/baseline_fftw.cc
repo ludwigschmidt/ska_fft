@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <iostream>
 #include <vector>
 
@@ -12,13 +13,14 @@ using namespace std;
 
 int main(int argc, char** argv) {
   // read program options
-  if (argc != 4) {
+  if (argc != 5) {
     printf("Wrong number of arguments.\n");
     return 1;
   }
   const char* filename = argv[1];
   const int n = atoi(argv[2]);
-  const int num_trials = atoi(argv[3]);
+  const char* output_filename = argv[3];
+  const int num_trials = atoi(argv[4]);
 
   vector<double> running_times;
   
@@ -27,25 +29,25 @@ int main(int argc, char** argv) {
   complexf* data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * n2));
 
-  auto start = chrono::high_resolution_clock::now();
-  // read input data (frequency domain)
-  if (!read_input(data, filename, n)) {
-    return 1;
-  }
-  auto end = chrono::high_resolution_clock::now();
-  chrono::duration<double> reading_input_time = end - start;
-  cout << "Reading input time: " << reading_input_time.count() << " s" << endl;
-
   // fftw setup
-  start = chrono::high_resolution_clock::now();
+  auto start = chrono::high_resolution_clock::now();
   fftwf_plan plan = fftwf_plan_dft_2d(
       n, n,
       reinterpret_cast<fftwf_complex*>(data),
       reinterpret_cast<fftwf_complex*>(data),
       FFTW_FORWARD, FFTW_MEASURE);
-  end = chrono::high_resolution_clock::now();
+  auto end = chrono::high_resolution_clock::now();
   chrono::duration<double> fftw_setup_time = end - start;
   cout << "FFTW setup time: " << fftw_setup_time.count() << " s" << endl;
+
+  start = chrono::high_resolution_clock::now();
+  // read input data (frequency domain)
+  if (!read_input(data, filename, n)) {
+    return 1;
+  }
+  end = chrono::high_resolution_clock::now();
+  chrono::duration<double> reading_input_time = end - start;
+  cout << "Reading input time: " << reading_input_time.count() << " s" << endl;
 
   for (int trial = 0; trial < num_trials; ++trial) {
     // execute fftw
@@ -67,6 +69,17 @@ int main(int argc, char** argv) {
   mean /= (running_times.size() - num_outliers);
   cout << "Mean running time (excluding top " << num_outliers << " trials): "
        << mean << " s" << endl;
+
+  if (strcmp(output_filename, "none") != 0) {
+    start = chrono::high_resolution_clock::now();
+    if (!write_data(data, output_filename, n)) {
+      return 1;
+    }
+    end = chrono::high_resolution_clock::now();
+    chrono::duration<double> writing_output_time = end - start;
+    cout << "Writing output time: " << writing_output_time.count() << " s"
+         << endl;
+  }
 
   // clean-up
   fftwf_destroy_plan(plan);
