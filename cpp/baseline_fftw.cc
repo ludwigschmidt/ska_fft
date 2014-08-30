@@ -34,13 +34,15 @@ int main(int argc, char** argv) {
 
   complexf* data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * n2));
+  complexf* data2 = static_cast<complexf*>(
+      fftwf_malloc(sizeof(fftwf_complex) * n2));
 
   // fftw setup
   auto start = chrono::high_resolution_clock::now();
   fftwf_plan plan = fftwf_plan_dft_2d(
       n, n,
       reinterpret_cast<fftwf_complex*>(data),
-      reinterpret_cast<fftwf_complex*>(data),
+      reinterpret_cast<fftwf_complex*>(data2),
       FFTW_FORWARD, FFTW_MEASURE);
   auto end = chrono::high_resolution_clock::now();
   chrono::duration<double> fftw_setup_time = end - start;
@@ -78,7 +80,7 @@ int main(int argc, char** argv) {
 
   if (opts.output_filename != "") {
     start = chrono::high_resolution_clock::now();
-    if (!write_data(data, opts.output_filename.c_str(), n)) {
+    if (!write_data(data2, opts.output_filename.c_str(), n)) {
       return 1;
     }
     end = chrono::high_resolution_clock::now();
