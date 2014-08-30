@@ -7,8 +7,8 @@
 
 typedef std::complex<float> complexf;
 
-bool read_input(complexf* data, const char* filename, int n) {
-  int n2 = n * n;
+bool read_input(complexf* data, const char* filename, long long n) {
+  long long n2 = n * n;
   std::vector<float> buffer(n2);
   FILE* f = fopen(filename, "r");
   if (!f) {
@@ -39,8 +39,8 @@ bool read_input(complexf* data, const char* filename, int n) {
   return true;
 }
 
-bool write_data(complexf* data, const char* filename, int n) {
-  int n2 = n * n;
+bool write_data(complexf* data, const char* filename, long long n) {
+  long long n2 = n * n;
   std::vector<float> buffer(n2);
   FILE* f = fopen(filename, "w");
   if (!f) {

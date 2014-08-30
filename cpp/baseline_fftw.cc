@@ -18,13 +18,13 @@ int main(int argc, char** argv) {
     return 1;
   }
   const char* filename = argv[1];
-  const int n = atoi(argv[2]);
+  const long long n = atoi(argv[2]);
   const char* output_filename = argv[3];
   const int num_trials = atoi(argv[4]);
 
   vector<double> running_times;
   
-  const int n2 = n * n;
+  const long long n2 = n * n;
 
   complexf* data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * n2));

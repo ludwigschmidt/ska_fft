@@ -24,24 +24,24 @@ int main(int argc, char** argv) {
     return 1;
   }
   const char* filename = argv[1];
-  const int n = atoi(argv[2]);
+  const long long n = atoi(argv[2]);
   const char* output_filename = argv[3];
   const int num_trials = atoi(argv[4]);
 
   vector<double> running_times;
 
-  const int n2 = n * n;
-  const int center_size = n / 16;
-  const int center_size_sq = center_size * center_size;
-  const int slab_size = n / 256;
-  const int total_slab_size = slab_size * n;
+  const long long n2 = n * n;
+  const long long center_size = n / 16;
+  const long long center_size_sq = center_size * center_size;
+  const long long slab_size = n / 256;
+  const long long total_slab_size = slab_size * n;
 
   // detection threshold
   const float threshold = 0.35;
 
   // number of frequencies per bin
-  const int bsize_slab = n / slab_size;
-  const int bsize_center = n / center_size;
+  const long long bsize_slab = n / slab_size;
+  const long long bsize_center = n / center_size;
 
   // read input data (frequency domain)
   vector<complexf> data(n2);
