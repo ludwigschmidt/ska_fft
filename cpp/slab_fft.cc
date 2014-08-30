@@ -50,12 +50,8 @@ int main(int argc, char** argv) {
   const long long bsize_slab = n / slab_size;
   const long long bsize_center = n / center_size;
 
-  // read input data (frequency domain)
-  vector<complexf> data(n2);
-  if (!read_input(data.data(), opts.input_filename.c_str(), n)) {
-    return 1;
-  }
-
+  complexf* data = static_cast<complexf*>(
+      fftwf_malloc(sizeof(fftwf_complex) * n2));
   // output
   vector<complexf> output(n2);
 
@@ -65,31 +61,84 @@ int main(int argc, char** argv) {
   // center part
   complexf* center_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * center_size_sq));
-  fftwf_plan center_plan = fftwf_plan_dft_2d(
+  int center_n[2] = {static_cast<int>(center_size),
+                     static_cast<int>(center_size)};
+  int center_inembed[2] = {static_cast<int>(center_size),
+                           static_cast<int>(n)};
+  int center_onembed[2] = {static_cast<int>(center_size),
+                           static_cast<int>(center_size)};
+  fftwf_plan center_plan = fftwf_plan_many_dft(
+      2,
+      center_n,
+      1,
+      reinterpret_cast<fftwf_complex*>(data
+          + (n / 2 - center_size / 2) * n + (n / 2 - center_size / 2)),
+      center_inembed,
+      1,
+      0,
+      reinterpret_cast<fftwf_complex*>(center_data),
+      center_onembed,
+      1,
+      0,
+      FFTW_FORWARD,
+      FFTW_MEASURE);
+
+  /*fftwf_plan center_plan = fftwf_plan_dft_2d(
       center_size, center_size,
       reinterpret_cast<fftwf_complex*>(center_data),
       reinterpret_cast<fftwf_complex*>(center_data),
-      FFTW_FORWARD, FFTW_MEASURE);
+      FFTW_FORWARD, FFTW_MEASURE);*/
   // horizontal and vertical slabs
   complexf* horiz_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
-  complexf* vert_data = static_cast<complexf*>(
-      fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
   fftwf_plan horiz_plan = fftwf_plan_dft_2d(
       slab_size, n,
-      reinterpret_cast<fftwf_complex*>(horiz_data),
+      reinterpret_cast<fftwf_complex*>(data + (n / 2 - slab_size / 2) * n),
       reinterpret_cast<fftwf_complex*>(horiz_data),
       FFTW_FORWARD, FFTW_MEASURE);
-  fftwf_plan vert_plan = fftwf_plan_dft_2d(
+
+  complexf* vert_data = static_cast<complexf*>(
+      fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
+  int vert_n[2] = {static_cast<int>(n),
+                   static_cast<int>(slab_size)};
+  int vert_inembed[2] = {static_cast<int>(n),
+                         static_cast<int>(n)};
+  int vert_onembed[2] = {static_cast<int>(n),
+                         static_cast<int>(slab_size)};
+  fftwf_plan vert_plan = fftwf_plan_many_dft(
+      2,
+      vert_n,
+      1,
+      reinterpret_cast<fftwf_complex*>(data + (n / 2 - slab_size / 2)),
+      vert_inembed,
+      1,
+      0,
+      reinterpret_cast<fftwf_complex*>(vert_data),
+      vert_onembed,
+      1,
+      0,
+      FFTW_FORWARD,
+      FFTW_MEASURE);
+  /*fftwf_plan vert_plan = fftwf_plan_dft_2d(
       n, slab_size,
       reinterpret_cast<fftwf_complex*>(vert_data),
       reinterpret_cast<fftwf_complex*>(vert_data),
-      FFTW_FORWARD, FFTW_MEASURE);
+      FFTW_FORWARD, FFTW_MEASURE);*/
   // diagonal slabs
-  complexf* diaghi_data = static_cast<complexf*>(
-      fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
-  complexf* diaglo_data = static_cast<complexf*>(
-      fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
+  complexf* diaghi_data = nullptr;
+  complexf* diaglo_data = nullptr;
+  if (opts.use_diagonal_slabs) {
+    diaghi_data = static_cast<complexf*>(
+        fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
+    diaglo_data = static_cast<complexf*>(
+        fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
+  }
+
+
+  // read input data (frequency domain)
+  if (!read_input(data, opts.input_filename.c_str(), n)) {
+    return 1;
+  }
 
 
   for (int trial = 0; trial < opts.num_trials; ++trial) {
@@ -97,51 +146,53 @@ int main(int argc, char** argv) {
 
     // copy in data
     // center part
-    for (int row = 0; row < center_size; ++row) {
+    /*for (int row = 0; row < center_size; ++row) {
       int orig_row = n / 2 - center_size / 2 + row;
 
       memcpy(&(center_data[row * center_size]),
              &(data[orig_row * n + n / 2 - center_size / 2]),
              center_size * sizeof(complexf));
-    }
+    }*/
     // horizontal and vertical slabs
-    for (int row = 0; row < slab_size; ++row) {
+    /*for (int row = 0; row < slab_size; ++row) {
       int orig_row = n / 2 - slab_size / 2 + row;
       memcpy(&(horiz_data[row * n]),
              &(data[orig_row * n]),
              n * sizeof(complexf));
-    }
-    for (int row = 0; row < n; ++row) {
+    }*/
+    /*for (int row = 0; row < n; ++row) {
       memcpy(&(vert_data[row * slab_size]),
              &(data[row * n + n / 2 - slab_size / 2]),
              slab_size * sizeof(complexf));
-    }
+    }*/
     // diagonal slabs
-    for (int col = 0; col < n; ++col) {
-      for (int row = 0; row < slab_size; ++row) {
-        int orig_row = col - slab_size / 2 + row;
-        if (orig_row < 0) {
-          orig_row += n;
+    if (opts.use_diagonal_slabs) {
+      for (int col = 0; col < n; ++col) {
+        for (int row = 0; row < slab_size; ++row) {
+          int orig_row = col - slab_size / 2 + row;
+          if (orig_row < 0) {
+            orig_row += n;
+          }
+          if (orig_row >= n) {
+            orig_row -= n;
+          }
+          diaghi_data[row * n + col] = data[orig_row * n + col];
         }
-        if (orig_row >= n) {
-          orig_row -= n;
-        }
-        diaghi_data[row * n + col] = data[orig_row * n + col];
       }
-    }
-    for (int col = 0; col < n; ++col) {
-      for (int row = 0; row < slab_size; ++row) {
-        int orig_row = -col + slab_size / 2 - row;
-        if (orig_row < 0) {
-          orig_row += n;
+      for (int col = 0; col < n; ++col) {
+        for (int row = 0; row < slab_size; ++row) {
+          int orig_row = -col + slab_size / 2 - row;
+          if (orig_row < 0) {
+            orig_row += n;
+          }
+          if (orig_row < 0) {
+            orig_row += n;
+          }
+          if (orig_row >= n) {
+            orig_row -= n;
+          }
+          diaglo_data[row * n + col] = data[orig_row * n + col];
         }
-        if (orig_row < 0) {
-          orig_row += n;
-        }
-        if (orig_row >= n) {
-          orig_row -= n;
-        }
-        diaglo_data[row * n + col] = data[orig_row * n + col];
       }
     }
     //cout << diaglo_data[0] << " " << diaglo_data[1] << " " << diaglo_data[2]
@@ -163,12 +214,14 @@ int main(int argc, char** argv) {
     //cout << vert_data[0] << " " << vert_data[1] << " " << vert_data[2]
     //     << endl;
     // diagonal slabs
-    fftwf_execute_dft(horiz_plan,
-                      reinterpret_cast<fftwf_complex*>(diaghi_data),
-                      reinterpret_cast<fftwf_complex*>(diaghi_data));
-    fftwf_execute_dft(horiz_plan,
-                      reinterpret_cast<fftwf_complex*>(diaglo_data),
-                      reinterpret_cast<fftwf_complex*>(diaglo_data));
+    if (opts.use_diagonal_slabs) {
+      fftwf_execute_dft(horiz_plan,
+                        reinterpret_cast<fftwf_complex*>(diaghi_data),
+                        reinterpret_cast<fftwf_complex*>(diaghi_data));
+      fftwf_execute_dft(horiz_plan,
+                        reinterpret_cast<fftwf_complex*>(diaglo_data),
+                        reinterpret_cast<fftwf_complex*>(diaglo_data));
+    }
     //cout << diaghi_data[0] << " " << diaghi_data[1] << " " << diaghi_data[2]
     //    << endl;
     //cout << diaglo_data[0] << " " << diaglo_data[1] << " " << diaglo_data[2]
@@ -272,32 +325,37 @@ int main(int argc, char** argv) {
           
           float vert_value = abs(vert_data[row * slab_size + vert_bin_col]);
 
-          int diaghi_bin_row = horiz_bin_row;
-          int diaghi_bin_col = row + col;
-          if (diaghi_bin_col >= n) {
-            diaghi_bin_col -= n;
+          float average_value;
+          if (opts.use_diagonal_slabs) {
+            int diaghi_bin_row = horiz_bin_row;
+            int diaghi_bin_col = row + col;
+            if (diaghi_bin_col >= n) {
+              diaghi_bin_col -= n;
+            }
+
+            //cout << "diaghi_bin_row: " << diaghi_bin_row
+            //     << "   diaghi_bin_col: " << diaghi_bin_col << endl;
+
+            float diaghi_value =
+                abs(diaghi_data[diaghi_bin_row * n + diaghi_bin_col]);
+
+            int diaglo_bin_row = vert_bin_col;
+            int diaglo_bin_col = -row + col;
+            if (diaglo_bin_col < 0) {
+              diaglo_bin_col += n;
+            }
+
+            //cout << "diaglo_bin_row: " << diaglo_bin_row
+            //     << "   diaglo_bin_col: " << diaglo_bin_col << endl;
+
+            float diaglo_value =
+                abs(diaglo_data[diaglo_bin_row * n + diaglo_bin_col]);
+            average_value = (center_value + horiz_value + vert_value
+                + diaghi_value + diaglo_value) / 5.0f;
+          } else {
+            average_value = (center_value + horiz_value + vert_value) / 3.0f;
           }
 
-          //cout << "diaghi_bin_row: " << diaghi_bin_row
-          //     << "   diaghi_bin_col: " << diaghi_bin_col << endl;
-
-          float diaghi_value =
-              abs(diaghi_data[diaghi_bin_row * n + diaghi_bin_col]);
-
-          int diaglo_bin_row = vert_bin_col;
-          int diaglo_bin_col = -row + col;
-          if (diaglo_bin_col < 0) {
-            diaglo_bin_col += n;
-          }
-
-          //cout << "diaglo_bin_row: " << diaglo_bin_row
-          //     << "   diaglo_bin_col: " << diaglo_bin_col << endl;
-
-          float diaglo_value =
-              abs(diaglo_data[diaglo_bin_row * n + diaglo_bin_col]);
-
-          float average_value = (center_value + horiz_value + vert_value
-              + diaghi_value + diaglo_value) / 5.0f;
           output[row * n + col] = average_value;
 
           /*cout << center_value << " " << horiz_value << " "
@@ -337,8 +395,10 @@ int main(int argc, char** argv) {
   fftwf_free(horiz_data);
   fftwf_destroy_plan(vert_plan);
   fftwf_free(vert_data);
-  fftwf_free(diaghi_data);
-  fftwf_free(diaglo_data);
+  if (opts.use_diagonal_slabs) {
+    fftwf_free(diaghi_data);
+    fftwf_free(diaglo_data);
+  }
 
 
   if (opts.output_filename != "") {
