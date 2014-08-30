@@ -83,12 +83,6 @@ int main(int argc, char** argv) {
       FFTW_FORWARD,
       FFTW_MEASURE);
 
-  /*fftwf_plan center_plan = fftwf_plan_dft_2d(
-      center_size, center_size,
-      reinterpret_cast<fftwf_complex*>(center_data),
-      reinterpret_cast<fftwf_complex*>(center_data),
-      FFTW_FORWARD, FFTW_MEASURE);*/
-  // horizontal and vertical slabs
   complexf* horiz_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
   fftwf_plan horiz_plan = fftwf_plan_dft_2d(
@@ -119,11 +113,7 @@ int main(int argc, char** argv) {
       0,
       FFTW_FORWARD,
       FFTW_MEASURE);
-  /*fftwf_plan vert_plan = fftwf_plan_dft_2d(
-      n, slab_size,
-      reinterpret_cast<fftwf_complex*>(vert_data),
-      reinterpret_cast<fftwf_complex*>(vert_data),
-      FFTW_FORWARD, FFTW_MEASURE);*/
+
   // diagonal slabs
   complexf* diaghi_data = nullptr;
   complexf* diaglo_data = nullptr;
@@ -145,26 +135,6 @@ int main(int argc, char** argv) {
     auto overall_start = chrono::high_resolution_clock::now();
 
     // copy in data
-    // center part
-    /*for (int row = 0; row < center_size; ++row) {
-      int orig_row = n / 2 - center_size / 2 + row;
-
-      memcpy(&(center_data[row * center_size]),
-             &(data[orig_row * n + n / 2 - center_size / 2]),
-             center_size * sizeof(complexf));
-    }*/
-    // horizontal and vertical slabs
-    /*for (int row = 0; row < slab_size; ++row) {
-      int orig_row = n / 2 - slab_size / 2 + row;
-      memcpy(&(horiz_data[row * n]),
-             &(data[orig_row * n]),
-             n * sizeof(complexf));
-    }*/
-    /*for (int row = 0; row < n; ++row) {
-      memcpy(&(vert_data[row * slab_size]),
-             &(data[row * n + n / 2 - slab_size / 2]),
-             slab_size * sizeof(complexf));
-    }*/
     // diagonal slabs
     if (opts.use_diagonal_slabs) {
       for (int col = 0; col < n; ++col) {
