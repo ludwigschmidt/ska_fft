@@ -77,19 +77,16 @@ int main(int argc, char** argv) {
 
   // fftw setup
   int num_transforms = 3;
-  vector<int> fftw_threads(num_transforms);
-  for (int ii = 0; ii < num_transforms; ++ii) {
-    fftw_threads[ii] = opts.num_threads / num_transforms;
+  if (opts.use_diagonal_slabs) {
+    num_transforms = 5;
   }
-  int threads_left = opts.num_threads % num_transforms;
-  for (int ii = 0; ii < threads_left; ++ii) {
-    fftw_threads[ii] += 1;
+  int num_threads_per_transform = opts.num_threads / num_transforms;
+  if (opts.num_threads < num_transforms) {
+    num_threads_per_transform = opts.num_threads;
   }
-
-  printf("%d %d %d\n", fftw_threads[0], fftw_threads[1], fftw_threads[2]);
 
   // center part
-  fftwf_plan_with_nthreads(fftw_threads[0]);
+  fftwf_plan_with_nthreads(num_threads_per_transform);
 
   complexf* center_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * center_size_sq));
@@ -115,7 +112,6 @@ int main(int argc, char** argv) {
       FFTW_FORWARD,
       FFTW_MEASURE);
 
-  fftwf_plan_with_nthreads(fftw_threads[1]);
   complexf* horiz_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
   fftwf_plan horiz_plan = fftwf_plan_dft_2d(
@@ -124,7 +120,6 @@ int main(int argc, char** argv) {
       reinterpret_cast<fftwf_complex*>(horiz_data),
       FFTW_FORWARD, FFTW_MEASURE);
 
-  fftwf_plan_with_nthreads(fftw_threads[2]);
   complexf* vert_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
   int vert_n[2] = {static_cast<int>(n),
@@ -211,8 +206,8 @@ int main(int argc, char** argv) {
     // execute fftw
     auto start = chrono::high_resolution_clock::now();
 
-    if (opts.num_threads >= 3) {
-      omp_set_num_threads(3);
+    if (opts.num_threads >= num_transforms) {
+      omp_set_num_threads(num_transforms);
       #pragma omp parallel
       {
         int id = omp_get_thread_num();
@@ -221,38 +216,31 @@ int main(int argc, char** argv) {
           fftwf_execute(center_plan);
         } else if (id == 1) {
           fftwf_execute(horiz_plan);
-        } else {
+        } else if (id == 2) {
           fftwf_execute(vert_plan);
+        } else if (id == 3) {
+          // TODO: add diagonal plans here
+        } else {
+          // TODO: add diagonal plans here
         }
       }
       omp_set_num_threads(opts.num_threads);
     } else {
-      // center part
       fftwf_execute(center_plan);
-      //cout << center_data[0] << " " << center_data[1] << " " << center_data[2]
-      //    << endl;
-      // horizontal and vertical slabs
       fftwf_execute(horiz_plan);
       fftwf_execute(vert_plan);
-      //cout << horiz_data[0] << " " << horiz_data[1] << " " << horiz_data[2]
-      //     << endl;
-      //cout << vert_data[0] << " " << vert_data[1] << " " << vert_data[2]
-      //     << endl;
-      // diagonal slabs
-
-      if (opts.use_diagonal_slabs) {
+     
+      // TODO: add diagonal plans here
+      /*if (opts.use_diagonal_slabs) {
         fftwf_execute_dft(horiz_plan,
                           reinterpret_cast<fftwf_complex*>(diaghi_data),
                           reinterpret_cast<fftwf_complex*>(diaghi_data));
         fftwf_execute_dft(horiz_plan,
                           reinterpret_cast<fftwf_complex*>(diaglo_data),
                           reinterpret_cast<fftwf_complex*>(diaglo_data));
-      }
+      }*/
     }
-    //cout << diaghi_data[0] << " " << diaghi_data[1] << " " << diaghi_data[2]
-    //    << endl;
-    //cout << diaglo_data[0] << " " << diaglo_data[1] << " " << diaglo_data[2]
-    //    << endl;
+
     end = chrono::high_resolution_clock::now();
     chrono::duration<double> fftw_time = end - start;
 
@@ -290,7 +278,6 @@ int main(int argc, char** argv) {
       cout << loc.first << " " << loc.second << endl;
     }*/
 
-    int inner_iter = 0;
     start = chrono::high_resolution_clock::now();
     
     #pragma omp parallel
@@ -329,7 +316,6 @@ int main(int argc, char** argv) {
 
           for (int row = row_start; row <= row_end; ++row) {
             for (int col = col_start; col <= col_end; ++col) {
-              inner_iter += 1;
 
               /*if (col != 503 || row != 1511) {
                 continue;
@@ -458,7 +444,6 @@ int main(int argc, char** argv) {
          << endl;
     cout << "Overall time:       " << overall_time.count() << " s" << endl;
     cout << "Number of selected large bins: " << num_large_bins << endl;
-    cout << "Total inner interpolation iterations: " << inner_iter << endl;
     cout << "--------------------------------------------------------" << endl;
 
     running_times.push_back(overall_time.count());
@@ -554,6 +539,11 @@ bool parse_options(Options* options, int argc, char** argv) {
 
   if (options->n == -1) {
     printf("Input size option not set.\n");
+    return false;
+  }
+
+  if (options->use_diagonal_slabs) {
+    printf("Diagonal slabs are currently not supported.\n");
     return false;
   }
 
