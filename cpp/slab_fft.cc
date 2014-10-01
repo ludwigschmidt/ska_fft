@@ -19,6 +19,7 @@ using namespace std;
 typedef pair<int, int> location;
 
 struct Options {
+  int fftw_mode;
   string input_filename;
   string output_filename;
   long long n;
@@ -110,7 +111,7 @@ int main(int argc, char** argv) {
       1,
       0,
       FFTW_FORWARD,
-      FFTW_MEASURE);
+      opts.fftw_mode);
 
   complexf* horiz_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
@@ -118,7 +119,7 @@ int main(int argc, char** argv) {
       slab_size, n,
       reinterpret_cast<fftwf_complex*>(data + (n / 2 - slab_size / 2) * n),
       reinterpret_cast<fftwf_complex*>(horiz_data),
-      FFTW_FORWARD, FFTW_MEASURE);
+      FFTW_FORWARD, opts.fftw_mode);
 
   complexf* vert_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
@@ -141,7 +142,7 @@ int main(int argc, char** argv) {
       1,
       0,
       FFTW_FORWARD,
-      FFTW_MEASURE);
+      opts.fftw_mode);
 
   // diagonal slabs
   complexf* diaghi_data = nullptr;
@@ -505,6 +506,7 @@ int main(int argc, char** argv) {
 
 
 bool parse_options(Options* options, int argc, char** argv) {
+  options->fftw_mode = FFTW_MEASURE;
   options->input_filename = "";
   options->output_filename = "";
   options->n = -1;
@@ -513,9 +515,23 @@ bool parse_options(Options* options, int argc, char** argv) {
   options->use_diagonal_slabs = false;
 
   int c;
-  while ((c = getopt(argc, argv, "c:i:n:o:t:x")) != -1) {
+  while ((c = getopt(argc, argv, "c:i:f:n:o:t:x")) != -1) {
     if (c == 'c') {
       options->num_threads = stoi(string(optarg));
+    } else if (c == 'f') {
+      string tmp(optarg);
+      if (tmp == "estimate") {
+        options->fftw_mode = FFTW_ESTIMATE;
+      } else if (tmp == "measure") {
+        options->fftw_mode = FFTW_MEASURE;
+      } else if (tmp == "patient") {
+        options->fftw_mode = FFTW_PATIENT;
+      } else  if (tmp == "exhaustive") {
+        options->fftw_mode = FFTW_EXHAUSTIVE;
+      } else {
+        printf("Unknown FFTW mode.\n");
+        return false;
+      }
     } else if (c == 'i') {
       options->input_filename = string(optarg);
     } else if (c == 'n') {
