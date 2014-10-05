@@ -15,6 +15,7 @@ struct Options {
   string input_filename;
   string output_filename;
   long long n;
+  int num_threads;
   int num_trials;
 };
 
@@ -31,6 +32,13 @@ int main(int argc, char** argv) {
   vector<double> running_times;
   
   const long long n2 = n * n;
+
+  if (fftwf_init_threads() == 0) {
+    cout << "Error while initializing FFTW for threading." << endl;
+    return 1;
+  }
+
+  fftwf_plan_with_nthreads(opts.num_threads);
 
   complexf* data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * n2));
@@ -92,6 +100,7 @@ int main(int argc, char** argv) {
   // clean-up
   fftwf_destroy_plan(plan);
   fftwf_free(data);
+  fftwf_cleanup_threads();
 
   return 0;
 }
@@ -101,11 +110,14 @@ bool parse_options(Options* options, int argc, char** argv) {
   options->input_filename = "";
   options->output_filename = "";
   options->n = -1;
+  options->num_threads = 1;
   options->num_trials = 1;
 
   int c;
-  while ((c = getopt(argc, argv, "i:n:o:t:")) != -1) {
-    if (c == 'i') {
+  while ((c = getopt(argc, argv, "c:i:n:o:t:")) != -1) {
+    if (c == 'c') {
+      options->num_threads = stoi(string(optarg));
+    } else if (c == 'i') {
       options->input_filename = string(optarg);
     } else if (c == 'n') {
       options->n = stoi(string(optarg));

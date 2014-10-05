@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <fftw3.h>
+#include <omp.h>
 #include <unistd.h>
 
 #include "helpers.h"
@@ -18,14 +19,25 @@ using namespace std;
 typedef pair<int, int> location;
 
 struct Options {
+  int fftw_mode;
   string input_filename;
   string output_filename;
   long long n;
+  int num_threads;
   int num_trials;
   bool use_diagonal_slabs;
 };
 
+struct Job {
+  int thread_start;
+  int thread_end;
+  long long bin_start;
+  long long bin_end;
+};
+
 bool parse_options(Options* options, int argc, char** argv);
+
+void build_job_list(vector<Job>* jobs, const vector<vector<location> >& bins);
 
 
 int main(int argc, char** argv) {
@@ -33,6 +45,12 @@ int main(int argc, char** argv) {
   if (!parse_options(&opts, argc, argv)) {
     return 1;
   }
+  
+  if (fftwf_init_threads() == 0) {
+    cout << "Error while initializing FFTW for threading." << endl;
+    return 1;
+  }
+
   const long long n = opts.n;
 
   vector<double> running_times;
@@ -55,10 +73,22 @@ int main(int argc, char** argv) {
   // output
   vector<complexf> output(n2);
 
+  // OpenMP setup
+  omp_set_num_threads(opts.num_threads);
 
   // fftw setup
+  int num_transforms = 3;
+  if (opts.use_diagonal_slabs) {
+    num_transforms = 5;
+  }
+  int num_threads_per_transform = opts.num_threads / num_transforms;
+  if (opts.num_threads < num_transforms) {
+    num_threads_per_transform = opts.num_threads;
+  }
 
   // center part
+  fftwf_plan_with_nthreads(num_threads_per_transform);
+
   complexf* center_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * center_size_sq));
   int center_n[2] = {static_cast<int>(center_size),
@@ -81,7 +111,7 @@ int main(int argc, char** argv) {
       1,
       0,
       FFTW_FORWARD,
-      FFTW_MEASURE);
+      opts.fftw_mode);
 
   complexf* horiz_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
@@ -89,7 +119,7 @@ int main(int argc, char** argv) {
       slab_size, n,
       reinterpret_cast<fftwf_complex*>(data + (n / 2 - slab_size / 2) * n),
       reinterpret_cast<fftwf_complex*>(horiz_data),
-      FFTW_FORWARD, FFTW_MEASURE);
+      FFTW_FORWARD, opts.fftw_mode);
 
   complexf* vert_data = static_cast<complexf*>(
       fftwf_malloc(sizeof(fftwf_complex) * total_slab_size));
@@ -112,7 +142,7 @@ int main(int argc, char** argv) {
       1,
       0,
       FFTW_FORWARD,
-      FFTW_MEASURE);
+      opts.fftw_mode);
 
   // diagonal slabs
   complexf* diaghi_data = nullptr;
@@ -129,6 +159,10 @@ int main(int argc, char** argv) {
   if (!read_input(data, opts.input_filename.c_str(), n)) {
     return 1;
   }
+  
+  // reserve thread-specific memory once
+  vector<vector<location>> large_bins(opts.num_threads);
+  vector<Job> jobs(opts.num_threads);
 
 
   for (int trial = 0; trial < opts.num_trials; ++trial) {
@@ -172,42 +206,71 @@ int main(int argc, char** argv) {
 
     // execute fftw
     auto start = chrono::high_resolution_clock::now();
-    // center part
-    fftwf_execute(center_plan);
-    //cout << center_data[0] << " " << center_data[1] << " " << center_data[2]
-    //    << endl;
-    // horizontal and vertical slabs
-    fftwf_execute(horiz_plan);
-    fftwf_execute(vert_plan);
-    //cout << horiz_data[0] << " " << horiz_data[1] << " " << horiz_data[2]
-    //     << endl;
-    //cout << vert_data[0] << " " << vert_data[1] << " " << vert_data[2]
-    //     << endl;
-    // diagonal slabs
-    if (opts.use_diagonal_slabs) {
-      fftwf_execute_dft(horiz_plan,
-                        reinterpret_cast<fftwf_complex*>(diaghi_data),
-                        reinterpret_cast<fftwf_complex*>(diaghi_data));
-      fftwf_execute_dft(horiz_plan,
-                        reinterpret_cast<fftwf_complex*>(diaglo_data),
-                        reinterpret_cast<fftwf_complex*>(diaglo_data));
+
+    if (opts.num_threads >= num_transforms) {
+      omp_set_num_threads(num_transforms);
+      #pragma omp parallel
+      {
+        int id = omp_get_thread_num();
+
+        if (id == 0) {
+          fftwf_execute(center_plan);
+        } else if (id == 1) {
+          fftwf_execute(horiz_plan);
+        } else if (id == 2) {
+          fftwf_execute(vert_plan);
+        } else if (id == 3) {
+          // TODO: add diagonal plans here
+        } else {
+          // TODO: add diagonal plans here
+        }
+      }
+      omp_set_num_threads(opts.num_threads);
+    } else {
+      fftwf_execute(center_plan);
+      fftwf_execute(horiz_plan);
+      fftwf_execute(vert_plan);
+     
+      // TODO: add diagonal plans here
+      /*if (opts.use_diagonal_slabs) {
+        fftwf_execute_dft(horiz_plan,
+                          reinterpret_cast<fftwf_complex*>(diaghi_data),
+                          reinterpret_cast<fftwf_complex*>(diaghi_data));
+        fftwf_execute_dft(horiz_plan,
+                          reinterpret_cast<fftwf_complex*>(diaglo_data),
+                          reinterpret_cast<fftwf_complex*>(diaglo_data));
+      }*/
     }
-    //cout << diaghi_data[0] << " " << diaghi_data[1] << " " << diaghi_data[2]
-    //    << endl;
-    //cout << diaglo_data[0] << " " << diaglo_data[1] << " " << diaglo_data[2]
-    //    << endl;
+
     end = chrono::high_resolution_clock::now();
     chrono::duration<double> fftw_time = end - start;
 
     start = chrono::high_resolution_clock::now();
-    vector<location> large_bins;
-    for (int row = 0; row < center_size; ++row) {
-      for (int col = 0; col < center_size; ++col) {
-        if (abs(center_data[row * center_size + col]) > threshold) {
-          large_bins.push_back(make_pair(row, col));
+    
+    #pragma omp parallel
+    {
+      int id = omp_get_thread_num();
+      large_bins[id].clear();
+      int row_start = id * center_size / opts.num_threads;
+      int row_end = row_start + center_size / opts.num_threads;
+      if (id == opts.num_threads) {
+        row_end = center_size;
+      }
+
+      //printf("id = %d, row_start = %d, row_end = %d\n", id, row_start,
+      //    row_end);
+
+      for (int row = row_start; row < row_end; ++row) {
+        for (int col = 0; col < center_size; ++col) {
+          if (abs(center_data[row * center_size + col]) > threshold) {
+            large_bins[id].push_back(make_pair(row, col));
+          }
         }
       }
     }
+
+    build_job_list(&jobs, large_bins);
+
     end = chrono::high_resolution_clock::now();
     chrono::duration<double> selection_time = end - start;
 
@@ -216,121 +279,147 @@ int main(int argc, char** argv) {
       cout << loc.first << " " << loc.second << endl;
     }*/
 
-    int inner_iter = 0;
     start = chrono::high_resolution_clock::now();
+    
+    #pragma omp parallel
+    {
+      int id = omp_get_thread_num();
+      Job& job = jobs[id];
 
-    for (auto loc : large_bins) {
-      int col_bin = loc.second;
-      int row_bin = loc.first;
+      //printf("id = %d, job: (%d, %lld) to (%d, %lld)\n", id, job.thread_start,
+      //    job.bin_start, job.thread_end, job.bin_end);
 
-      int row_start = row_bin * bsize_center - bsize_center / 2 - 1;
-      int row_end = row_bin * bsize_center + bsize_center / 2 - 1;
-      int col_start = col_bin * bsize_center - bsize_center / 2 - 1;
-      int col_end = col_bin * bsize_center + bsize_center / 2 - 1;
+      for (int ithread = job.thread_start; ithread <= job.thread_end;
+          ++ithread) {
+        long long cur_bin_start = 0;
+        if (ithread == job.thread_start) {
+          cur_bin_start = job.bin_start;
+        }
+        long long cur_bin_end = static_cast<long long>(
+            large_bins[ithread].size()) - 1;
+        if (ithread == job.thread_end) {
+          cur_bin_end = job.bin_end;
+        }
 
-      for (int row = row_start; row <= row_end; ++row) {
-        for (int col = col_start; col <= col_end; ++col) {
-          inner_iter += 1;
+        //printf("id = %d, thread = %d, bin_start = %lld, bin_end = %lld\n",
+        //    id, ithread, cur_bin_start, cur_bin_end);
+        //fflush(stdout);
 
-          /*if (col != 503 || row != 1511) {
-            continue;
-          }
-          cout << row << " " << col << endl;*/
-          
-          if (row >= n) {
-            row -= n;
-          }
-          if (row < 0) {
-            row += n;
-          }
+        for (int ibin = cur_bin_start; ibin <= cur_bin_end; ++ibin) {
+          const location& loc = large_bins[ithread][ibin];
+          int col_bin = loc.second;
+          int row_bin = loc.first;
 
-          if (col >= n) {
-            col -= n;
-          }
-          if (col < 0) {
-            col += n;
-          }
+          int row_start = row_bin * bsize_center - bsize_center / 2 - 1;
+          int row_end = row_bin * bsize_center + bsize_center / 2 - 1;
+          int col_start = col_bin * bsize_center - bsize_center / 2 - 1;
+          int col_end = col_bin * bsize_center + bsize_center / 2 - 1;
 
-          int center_bin_row = (row + 1) / bsize_center;
-          if (row + 1 - center_bin_row * bsize_center >= bsize_center / 2) {
-            center_bin_row += 1;
-            if (center_bin_row >= n) {
-              center_bin_row -= n;
+          for (int row = row_start; row <= row_end; ++row) {
+            for (int col = col_start; col <= col_end; ++col) {
+
+              /*if (col != 503 || row != 1511) {
+                continue;
+              }
+              cout << row << " " << col << endl;*/
+              
+              if (row >= n) {
+                row -= n;
+              }
+              if (row < 0) {
+                row += n;
+              }
+
+              if (col >= n) {
+                col -= n;
+              }
+              if (col < 0) {
+                col += n;
+              }
+
+              int center_bin_row = (row + 1) / bsize_center;
+              if (row + 1 - center_bin_row * bsize_center >= bsize_center / 2) {
+                center_bin_row += 1;
+                if (center_bin_row >= n) {
+                  center_bin_row -= n;
+                }
+              }
+              int center_bin_col = (col + 1) / bsize_center;
+              if (col + 1 - center_bin_col * bsize_center >= bsize_center / 2) {
+                center_bin_col += 1;
+                if (center_bin_col >= n) {
+                  center_bin_col -= n;
+                }
+              }
+              
+              //cout << center_bin_row << " " << center_bin_col << endl;
+
+              float center_value = abs(center_data[
+                  center_bin_row * center_size + center_bin_col]);
+
+              int horiz_bin_row = (row + 1) / bsize_slab;
+              if (row + 1 - horiz_bin_row * bsize_slab >= bsize_slab / 2) {
+                horiz_bin_row += 1;
+                if (horiz_bin_row >= n) {
+                  horiz_bin_row -= n;
+                }
+              }
+
+              //cout << "horiz_bin_row: " << horiz_bin_row << endl;
+              
+              float horiz_value = abs(horiz_data[horiz_bin_row * n + col]);
+
+              int vert_bin_col = (col + 1) / bsize_slab;
+              if (col + 1 - vert_bin_col * bsize_slab >= bsize_slab / 2) {
+                vert_bin_col += 1;
+                if (vert_bin_col >= n) {
+                  vert_bin_col -= n;
+                }
+              }
+
+              //cout << "vert_bin_col: " << vert_bin_col << endl;
+              
+              float vert_value = abs(vert_data[row * slab_size + vert_bin_col]);
+
+              float average_value;
+              if (opts.use_diagonal_slabs) {
+                int diaghi_bin_row = horiz_bin_row;
+                int diaghi_bin_col = row + col;
+                if (diaghi_bin_col >= n) {
+                  diaghi_bin_col -= n;
+                }
+
+                //cout << "diaghi_bin_row: " << diaghi_bin_row
+                //     << "   diaghi_bin_col: " << diaghi_bin_col << endl;
+
+                float diaghi_value =
+                    abs(diaghi_data[diaghi_bin_row * n + diaghi_bin_col]);
+
+                int diaglo_bin_row = vert_bin_col;
+                int diaglo_bin_col = -row + col;
+                if (diaglo_bin_col < 0) {
+                  diaglo_bin_col += n;
+                }
+
+                //cout << "diaglo_bin_row: " << diaglo_bin_row
+                //     << "   diaglo_bin_col: " << diaglo_bin_col << endl;
+
+                float diaglo_value =
+                    abs(diaglo_data[diaglo_bin_row * n + diaglo_bin_col]);
+                average_value = (center_value + horiz_value + vert_value
+                    + diaghi_value + diaglo_value) / 5.0f;
+              } else {
+                average_value = (center_value + horiz_value + vert_value)
+                    / 3.0f;
+              }
+
+              output[row * n + col] = average_value;
+
+              /*cout << center_value << " " << horiz_value << " "
+                   << vert_value << " " << diaghi_value << " "
+                   << diaglo_value << " " << average_value << endl;*/
             }
           }
-          int center_bin_col = (col + 1) / bsize_center;
-          if (col + 1 - center_bin_col * bsize_center >= bsize_center / 2) {
-            center_bin_col += 1;
-            if (center_bin_col >= n) {
-              center_bin_col -= n;
-            }
-          }
-          
-          //cout << center_bin_row << " " << center_bin_col << endl;
-
-          float center_value = abs(center_data[
-              center_bin_row * center_size + center_bin_col]);
-
-          int horiz_bin_row = (row + 1) / bsize_slab;
-          if (row + 1 - horiz_bin_row * bsize_slab >= bsize_slab / 2) {
-            horiz_bin_row += 1;
-            if (horiz_bin_row >= n) {
-              horiz_bin_row -= n;
-            }
-          }
-
-          //cout << "horiz_bin_row: " << horiz_bin_row << endl;
-          
-          float horiz_value = abs(horiz_data[horiz_bin_row * n + col]);
-
-          int vert_bin_col = (col + 1) / bsize_slab;
-          if (col + 1 - vert_bin_col * bsize_slab >= bsize_slab / 2) {
-            vert_bin_col += 1;
-            if (vert_bin_col >= n) {
-              vert_bin_col -= n;
-            }
-          }
-
-          //cout << "vert_bin_col: " << vert_bin_col << endl;
-          
-          float vert_value = abs(vert_data[row * slab_size + vert_bin_col]);
-
-          float average_value;
-          if (opts.use_diagonal_slabs) {
-            int diaghi_bin_row = horiz_bin_row;
-            int diaghi_bin_col = row + col;
-            if (diaghi_bin_col >= n) {
-              diaghi_bin_col -= n;
-            }
-
-            //cout << "diaghi_bin_row: " << diaghi_bin_row
-            //     << "   diaghi_bin_col: " << diaghi_bin_col << endl;
-
-            float diaghi_value =
-                abs(diaghi_data[diaghi_bin_row * n + diaghi_bin_col]);
-
-            int diaglo_bin_row = vert_bin_col;
-            int diaglo_bin_col = -row + col;
-            if (diaglo_bin_col < 0) {
-              diaglo_bin_col += n;
-            }
-
-            //cout << "diaglo_bin_row: " << diaglo_bin_row
-            //     << "   diaglo_bin_col: " << diaglo_bin_col << endl;
-
-            float diaglo_value =
-                abs(diaglo_data[diaglo_bin_row * n + diaglo_bin_col]);
-            average_value = (center_value + horiz_value + vert_value
-                + diaghi_value + diaglo_value) / 5.0f;
-          } else {
-            average_value = (center_value + horiz_value + vert_value) / 3.0f;
-          }
-
-          output[row * n + col] = average_value;
-
-          /*cout << center_value << " " << horiz_value << " "
-               << vert_value << " " << diaghi_value << " "
-               << diaglo_value << " " << average_value << endl;*/
         }
       }
     }
@@ -338,6 +427,11 @@ int main(int argc, char** argv) {
     end = chrono::high_resolution_clock::now();
     chrono::duration<double> interpolation_time = end - start;
     chrono::duration<double> overall_time = end - overall_start;
+
+    long long num_large_bins = 0;
+    for (size_t ii = 0; ii < large_bins.size(); ++ii) {
+      num_large_bins += large_bins[ii].size();
+    }
 
     cout << "Data copy time:     " << copy_time.count() << " s   ("
          << copy_time.count() / overall_time.count() * 100.0 << "%)" << endl;
@@ -350,9 +444,7 @@ int main(int argc, char** argv) {
          << interpolation_time.count() / overall_time.count() * 100.0 << "%)"
          << endl;
     cout << "Overall time:       " << overall_time.count() << " s" << endl;
-
-    cout << "Number of selected large bins: " << large_bins.size() << endl;
-    cout << "Total inner interpolation iterations: " << inner_iter << endl;
+    cout << "Number of selected large bins: " << num_large_bins << endl;
     cout << "--------------------------------------------------------" << endl;
 
     running_times.push_back(overall_time.count());
@@ -369,6 +461,7 @@ int main(int argc, char** argv) {
     fftwf_free(diaghi_data);
     fftwf_free(diaglo_data);
   }
+  fftwf_cleanup_threads();
 
 
   if (opts.output_filename != "") {
@@ -413,15 +506,33 @@ int main(int argc, char** argv) {
 
 
 bool parse_options(Options* options, int argc, char** argv) {
+  options->fftw_mode = FFTW_MEASURE;
   options->input_filename = "";
   options->output_filename = "";
   options->n = -1;
+  options->num_threads = 1;
   options->num_trials = 1;
   options->use_diagonal_slabs = false;
 
   int c;
-  while ((c = getopt(argc, argv, "i:n:o:t:x")) != -1) {
-    if (c == 'i') {
+  while ((c = getopt(argc, argv, "c:i:f:n:o:t:x")) != -1) {
+    if (c == 'c') {
+      options->num_threads = stoi(string(optarg));
+    } else if (c == 'f') {
+      string tmp(optarg);
+      if (tmp == "estimate") {
+        options->fftw_mode = FFTW_ESTIMATE;
+      } else if (tmp == "measure") {
+        options->fftw_mode = FFTW_MEASURE;
+      } else if (tmp == "patient") {
+        options->fftw_mode = FFTW_PATIENT;
+      } else  if (tmp == "exhaustive") {
+        options->fftw_mode = FFTW_EXHAUSTIVE;
+      } else {
+        printf("Unknown FFTW mode.\n");
+        return false;
+      }
+    } else if (c == 'i') {
       options->input_filename = string(optarg);
     } else if (c == 'n') {
       options->n = stoi(string(optarg));
@@ -447,5 +558,56 @@ bool parse_options(Options* options, int argc, char** argv) {
     return false;
   }
 
+  if (options->use_diagonal_slabs) {
+    printf("Diagonal slabs are currently not supported.\n");
+    return false;
+  }
+
   return true;
+}
+
+void build_job_list(vector<Job>* jobs, const vector<vector<location> >& bins) {
+  vector<Job>& jobref = *jobs;
+  int num_threads = bins.size();
+  long long num_large_pixels = 0;
+  for (int ii = 0; ii < num_threads; ++ii) {
+    num_large_pixels += bins[ii].size();
+  }
+  long long job_size = num_large_pixels / num_threads;
+  
+  int cur_thread = 0;
+  long long cur_bin = 0;
+
+  for (int ijob = 0; ijob < num_threads; ++ijob) {
+    jobref[ijob].thread_start = cur_thread;
+    jobref[ijob].bin_start = cur_bin;
+
+    long long remaining_in_job = job_size;
+    if (ijob == num_threads - 1) {
+      jobref[ijob].thread_end = num_threads - 1;
+      jobref[ijob].bin_end =
+          static_cast<long long>(bins[num_threads - 1].size() - 1);
+      break;
+    }
+    
+    while (true) {
+      long long remaining_in_thread = bins[cur_thread].size() - cur_bin;
+      if (remaining_in_job >= remaining_in_thread) {
+        cur_bin = 0;
+        cur_thread += 1;
+        remaining_in_job -= remaining_in_thread;
+        if (remaining_in_job == 0) {
+          jobref[ijob].thread_end = cur_thread;
+          jobref[ijob].bin_end =
+              static_cast<long long>(bins[cur_thread - 1].size()) - 1;
+          break;
+        }
+      } else {
+        jobref[ijob].thread_end = cur_thread;
+        jobref[ijob].bin_end = cur_bin + remaining_in_job - 1;
+        cur_bin += remaining_in_job;
+        break;
+      }
+    }
+  }
 }
