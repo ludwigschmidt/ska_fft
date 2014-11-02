@@ -19,6 +19,7 @@ using namespace std;
 typedef pair<int, int> location;
 
 struct Options {
+  int center_size_divisor;
   int fftw_mode;
   string input_filename;
   string output_filename;
@@ -56,9 +57,10 @@ int main(int argc, char** argv) {
   vector<double> running_times;
 
   const long long n2 = n * n;
-  const long long center_size = n / 16;
+  const long long center_size = n / opts.center_size_divisor;
   const long long center_size_sq = center_size * center_size;
-  const long long slab_size = n / 256;
+  const long long slab_size = n / (opts.center_size_divisor
+                                   * opts.center_size_divisor);
   const long long total_slab_size = slab_size * n;
 
   // detection threshold
@@ -512,10 +514,11 @@ bool parse_options(Options* options, int argc, char** argv) {
   options->n = -1;
   options->num_threads = 1;
   options->num_trials = 1;
+  options->center_size_divisor = 16;
   options->use_diagonal_slabs = false;
 
   int c;
-  while ((c = getopt(argc, argv, "c:i:f:n:o:t:x")) != -1) {
+  while ((c = getopt(argc, argv, "c:i:f:n:o:s:t:x")) != -1) {
     if (c == 'c') {
       options->num_threads = stoi(string(optarg));
     } else if (c == 'f') {
@@ -538,6 +541,8 @@ bool parse_options(Options* options, int argc, char** argv) {
       options->n = stoi(string(optarg));
     } else if (c == 'o') {
       options->output_filename = string(optarg);
+    } else if (c == 's') {
+      options->center_size_divisor = stoi(string(optarg));
     } else if (c == 't') {
       options->num_trials = stoi(string(optarg));
     } else if (c == 'x') {
