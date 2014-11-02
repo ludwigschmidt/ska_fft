@@ -6,3 +6,4 @@ pick_peaks
 *.swo
 *.swp
 *.swn
+*.pyc
