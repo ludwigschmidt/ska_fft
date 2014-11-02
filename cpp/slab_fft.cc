@@ -342,15 +342,15 @@ int main(int argc, char** argv) {
               int center_bin_row = (row + 1) / bsize_center;
               if (row + 1 - center_bin_row * bsize_center >= bsize_center / 2) {
                 center_bin_row += 1;
-                if (center_bin_row >= n) {
-                  center_bin_row -= n;
+                if (center_bin_row >= center_size) {
+                  center_bin_row -= center_size;
                 }
               }
               int center_bin_col = (col + 1) / bsize_center;
               if (col + 1 - center_bin_col * bsize_center >= bsize_center / 2) {
                 center_bin_col += 1;
-                if (center_bin_col >= n) {
-                  center_bin_col -= n;
+                if (center_bin_col >= center_size) {
+                  center_bin_col -= center_size;
                 }
               }
               
@@ -362,8 +362,8 @@ int main(int argc, char** argv) {
               int horiz_bin_row = (row + 1) / bsize_slab;
               if (row + 1 - horiz_bin_row * bsize_slab >= bsize_slab / 2) {
                 horiz_bin_row += 1;
-                if (horiz_bin_row >= n) {
-                  horiz_bin_row -= n;
+                if (horiz_bin_row >= slab_size) {
+                  horiz_bin_row -= slab_size;
                 }
               }
 
@@ -374,8 +374,8 @@ int main(int argc, char** argv) {
               int vert_bin_col = (col + 1) / bsize_slab;
               if (col + 1 - vert_bin_col * bsize_slab >= bsize_slab / 2) {
                 vert_bin_col += 1;
-                if (vert_bin_col >= n) {
-                  vert_bin_col -= n;
+                if (vert_bin_col >= slab_size) {
+                  vert_bin_col -= slab_size;
                 }
               }
 
@@ -508,13 +508,13 @@ int main(int argc, char** argv) {
 
 
 bool parse_options(Options* options, int argc, char** argv) {
+  options->center_size_divisor = 16;
   options->fftw_mode = FFTW_MEASURE;
   options->input_filename = "";
   options->output_filename = "";
   options->n = -1;
   options->num_threads = 1;
   options->num_trials = 1;
-  options->center_size_divisor = 16;
   options->use_diagonal_slabs = false;
 
   int c;
