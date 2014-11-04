@@ -7,5 +7,5 @@ baseline_fftw: baseline_fftw.cc helpers.h
 check_output: check_output.cc helpers.h
 	g++ -std=c++11 -Wall -Wextra -O3 -o check_output check_output.cc
 
-pick_peaks: pick_peaks.cc helpers.h
+pick_peaks: pick_peaks.cc helpers.h peaks_helpers.h
 	g++ -std=c++11 -Wall -Wextra -O3 -o pick_peaks pick_peaks.cc
