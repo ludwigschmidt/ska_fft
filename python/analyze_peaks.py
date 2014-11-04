@@ -1,7 +1,6 @@
 #! /usr/bin/python
 
 import math
-import numpy as np
 import sys
 
 def parse_peak_data(f):
@@ -23,6 +22,18 @@ def compute_l2_distances(peaks1, peaks2):
   return l2_dsts
 
 
+def mean(l):
+  s = 0.0
+  for x in l:
+    s += x
+  return s / len(l)
+
+
+def median(l):
+  l2 = sorted(l)
+  return l2[len(l) / 2]
+
+
 if __name__ == '__main__':
   name1 = sys.argv[1]
   name2 = sys.argv[2]
@@ -33,5 +44,5 @@ if __name__ == '__main__':
       l2_dsts = compute_l2_distances(peaks1, peaks2)
       print 'min: {}  max: {}  mean: {}  median: {}'.format(min(l2_dsts),
                                                             max(l2_dsts),
-                                                            np.mean(l2_dsts),
-                                                            np.median(l2_dsts))
+                                                            mean(l2_dsts),
+                                                            median(l2_dsts))
