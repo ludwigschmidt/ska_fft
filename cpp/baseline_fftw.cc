@@ -8,12 +8,15 @@
 #include <unistd.h>
 
 #include "helpers.h"
+#include "peaks_helpers.h"
 
 using namespace std;
 
 struct Options {
   string input_filename;
   string output_filename;
+  string peaks_filename;
+  string regions_filename;
   long long n;
   int num_threads;
   int num_trials;
@@ -97,6 +100,34 @@ int main(int argc, char** argv) {
          << endl;
   }
 
+  if (opts.regions_filename != "") {
+    vector<region> regions;
+    vector<peak> peaks;
+
+    if (!read_regions(opts.regions_filename.c_str(), &regions)) {
+      cout << "Could not read regions file.";
+      return 1;
+    }
+
+    if (!find_peaks(data2, n, regions, &peaks)) {
+      cout << "Could not find peaks.";
+      return 1;
+    }
+    
+    cout << "--------------------------------------------------------" << endl;
+    cout << "Peaks:" << endl;
+    for (size_t ii = 0; ii < peaks.size(); ++ii) {
+      cout << peaks[ii].x << " " << peaks[ii].y << " " << peaks[ii].value
+           << endl;
+    }
+
+    if (opts.peaks_filename != "") {
+      if (!write_peaks_to_file(peaks, opts.peaks_filename)) {
+        cout << "Error while writing peaks to file." << endl;
+      }
+    }
+  }
+
   // clean-up
   fftwf_destroy_plan(plan);
   fftwf_free(data);
@@ -109,12 +140,14 @@ int main(int argc, char** argv) {
 bool parse_options(Options* options, int argc, char** argv) {
   options->input_filename = "";
   options->output_filename = "";
+  options->peaks_filename = "";
+  options->regions_filename = "";
   options->n = -1;
   options->num_threads = 1;
   options->num_trials = 1;
 
   int c;
-  while ((c = getopt(argc, argv, "c:i:n:o:t:")) != -1) {
+  while ((c = getopt(argc, argv, "c:i:n:o:p:r:t:")) != -1) {
     if (c == 'c') {
       options->num_threads = stoi(string(optarg));
     } else if (c == 'i') {
@@ -123,6 +156,10 @@ bool parse_options(Options* options, int argc, char** argv) {
       options->n = stoi(string(optarg));
     } else if (c == 'o') {
       options->output_filename = string(optarg);
+    } else if (c == 'r') {
+      options->regions_filename = string(optarg);
+    } else if (c == 'p') {
+      options->peaks_filename = string(optarg);
     } else if (c == 't') {
       options->num_trials = stoi(string(optarg));
     } else {

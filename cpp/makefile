@@ -1,7 +1,7 @@
-slab_fft: slab_fft.cc helpers.h
+slab_fft: slab_fft.cc helpers.h peaks_helpers.h
 	g++ -std=c++11 -Wall -Wextra -fopenmp -lfftw3f -lfftw3f_threads -O3 -o slab_fft slab_fft.cc
 
-baseline_fftw: baseline_fftw.cc helpers.h
+baseline_fftw: baseline_fftw.cc helpers.h peaks_helpers.h
 	g++ -std=c++11 -Wall -Wextra -lfftw3f -lfftw3f_threads -O3 -o baseline_fftw baseline_fftw.cc
 
 check_output: check_output.cc helpers.h

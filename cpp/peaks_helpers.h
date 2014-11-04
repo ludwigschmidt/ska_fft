@@ -42,7 +42,7 @@ bool read_regions(const char* filename, std::vector<region>* regions) {
   return true;
 }
 
-bool find_peaks(const std::vector<complexf>& data,
+bool find_peaks(const complexf* data,
                 long long n,
                 const std::vector<region>& regions,
                 std::vector<peak>* peaks) {
@@ -74,6 +74,19 @@ bool find_peaks(const std::vector<complexf>& data,
     (*peaks)[ii].value = maxv;
   }
 
+  return true;
+}
+
+bool write_peaks_to_file(const std::vector<peak>& peaks,
+                         const std::string& filename) {
+  FILE* f = fopen(filename.c_str(), "w");
+  if (!f) {
+    return false;
+  }
+  for (size_t ii = 0; ii < peaks.size(); ++ii) {
+    fprintf(f, "%lld %lld %lf\n", peaks[ii].x, peaks[ii].y, peaks[ii].value);
+  }
+  fclose(f);
   return true;
 }
 

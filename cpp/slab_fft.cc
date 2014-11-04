@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "helpers.h"
+#include "peaks_helpers.h"
 
 using namespace std;
 
@@ -26,6 +27,8 @@ struct Options {
   long long n;
   int num_threads;
   int num_trials;
+  string peaks_filename;
+  string regions_filename;
   bool use_diagonal_slabs;
 };
 
@@ -482,26 +485,33 @@ int main(int argc, char** argv) {
   cout << "Mean running time (excluding top " << outliers << " trials): "
        << mean << " s" << endl;
 
-  /*
-  // Compute statistics
-  complex<float> sum = 0;
-  for (int ii = 0; ii < n2; ++ii) {
-    sum += data[ii];
-  }
-  cout << "Sum: " << sum << endl;
+  if (opts.regions_filename != "") {
+    vector<region> regions;
+    vector<peak> peaks;
 
-  complex<float> sumsq = 0;
-  for (int ii = 0; ii < n2; ++ii) {
-    sumsq += data[ii] * data[ii];
-  }
-  cout << "Sum of squares: " << sumsq << endl;
+    if (!read_regions(opts.regions_filename.c_str(), &regions)) {
+      cout << "Could not read regions file.";
+      return 1;
+    }
 
-  float sumabs = 0;
-  for (int ii = 0; ii < n2; ++ii) {
-    sumabs += abs(data[ii]);
+    if (!find_peaks(output.data(), n, regions, &peaks)) {
+      cout << "Could not find peaks.";
+      return 1;
+    }
+    
+    cout << "--------------------------------------------------------" << endl;
+    cout << "Peaks:" << endl;
+    for (size_t ii = 0; ii < peaks.size(); ++ii) {
+      cout << peaks[ii].x << " " << peaks[ii].y << " " << peaks[ii].value
+           << endl;
+    }
+
+    if (opts.peaks_filename != "") {
+      if (!write_peaks_to_file(peaks, opts.peaks_filename)) {
+        cout << "Error while writing peaks to file." << endl;
+      }
+    }
   }
-  cout << "Sum of absolute values: " << sumabs << endl;
-  */
 
   return 0;
 }
@@ -511,14 +521,16 @@ bool parse_options(Options* options, int argc, char** argv) {
   options->center_size_divisor = 16;
   options->fftw_mode = FFTW_MEASURE;
   options->input_filename = "";
+  options->regions_filename = "";
   options->output_filename = "";
+  options->peaks_filename = "";
   options->n = -1;
   options->num_threads = 1;
   options->num_trials = 1;
   options->use_diagonal_slabs = false;
 
   int c;
-  while ((c = getopt(argc, argv, "c:i:f:n:o:s:t:x")) != -1) {
+  while ((c = getopt(argc, argv, "c:i:f:n:o:p:r:s:t:x")) != -1) {
     if (c == 'c') {
       options->num_threads = stoi(string(optarg));
     } else if (c == 'f') {
@@ -539,8 +551,12 @@ bool parse_options(Options* options, int argc, char** argv) {
       options->input_filename = string(optarg);
     } else if (c == 'n') {
       options->n = stoi(string(optarg));
+    } else if (c == 'r') {
+      options->regions_filename = string(optarg);
     } else if (c == 'o') {
       options->output_filename = string(optarg);
+    } else if (c == 'p') {
+      options->peaks_filename = string(optarg);
     } else if (c == 's') {
       options->center_size_divisor = stoi(string(optarg));
     } else if (c == 't') {

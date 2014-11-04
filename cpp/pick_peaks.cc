@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  if (!find_peaks(data, n, regions, &peaks)) {
+  if (!find_peaks(data.data(), n, regions, &peaks)) {
     return 1;
   }
 
